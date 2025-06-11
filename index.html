@@ -1,0 +1,167 @@
+<!-- Save this as index.html and open in a browser. It will post to your n8n webhook directly -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vectors AI Chat</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: #0d0f15;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    .chat-box {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #0d0f15;
+      display: flex;
+      flex-direction: column;
+    }
+    .message {
+      margin: 8px 0;
+      padding: 12px 16px;
+      max-width: 75%;
+      border-radius: 20px;
+      font-size: 16px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+    .user {
+      background-color: #1e1f25;
+      color: #e0f0ff;
+      align-self: flex-end;
+      border-bottom-right-radius: 0;
+    }
+    .bot {
+      background-color: #20252b;
+      color: #d1ffdb;
+      align-self: flex-start;
+      border-bottom-left-radius: 0;
+    }
+    .input-bar {
+      display: flex;
+      padding: 12px;
+      background: #1a1d24;
+      border-top: 1px solid #2a2d34;
+    }
+    .input-bar input {
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 20px;
+      background-color: #2c2f36;
+      color: #ffffff;
+      font-size: 16px;
+      outline: none;
+    }
+    .input-bar button {
+      margin-left: 12px;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 20px;
+      background-color: #00ffae;
+      color: #000000;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .input-bar button:hover {
+      background-color: #00e89a;
+    }
+    .typing {
+      font-style: italic;
+      color: #888;
+    }
+    .dot-flash {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 4px;
+      background-color: #888;
+      border-radius: 50%;
+      animation: dotFlash 1s infinite alternate;
+    }
+    .dot-flash:nth-child(2) { animation-delay: 0.2s; }
+    .dot-flash:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotFlash {
+      0% { opacity: 0.2; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body onload="document.getElementById('msg').focus()">
+  <div class="chat-box" id="chat"></div>
+  <div class="input-bar">
+    <input type="text" id="msg" placeholder="Type a message..." onkeydown="handleKey(event)" />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    const sessionId = crypto.randomUUID();
+    let messageCount = 0;
+    const maxMessages = 5;
+
+    async function sendMessage() {
+      if (messageCount >= maxMessages) {
+        appendMessage('[Message limit reached]', 'bot');
+        return;
+      }
+
+      const input = document.getElementById('msg');
+      const message = input.value.trim();
+      if (!message) return;
+
+      appendMessage(message, 'user');
+      input.value = '';
+      showTyping();
+
+      try {
+        const res = await fetch('https://n8n.vectors.build/webhook/523ade29-2df2-46ac-82fe-ef57868562bf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, sessionId })
+        });
+
+        const data = await res.json();
+        removeTyping();
+        appendMessage((data[0]?.output || '[No response]'), 'bot');
+        messageCount++;
+      } catch (err) {
+        removeTyping();
+        appendMessage('[Error: could not reach API]', 'bot');
+      }
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter') sendMessage();
+    }
+
+    function appendMessage(text, cls) {
+      const div = document.createElement('div');
+      div.className = `message ${cls}`;
+      div.textContent = text;
+      document.getElementById('chat').appendChild(div);
+      document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+    }
+
+    function showTyping() {
+      const div = document.createElement('div');
+      div.id = 'typing';
+      div.className = 'message bot typing';
+      div.innerHTML = '<span class="dot-flash"></span><span class="dot-flash"></span><span class="dot-flash"></span>';
+      document.getElementById('chat').appendChild(div);
+    }
+
+    function removeTyping() {
+      const typing = document.getElementById('typing');
+      if (typing) typing.remove();
+    }
+  </script>
+</body>
+</html>
